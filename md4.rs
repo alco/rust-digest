@@ -70,11 +70,12 @@ fn process_msg_block(st: &mut Md4) {
     let mut [a, b, c, d] = st.h;
 
     // Round 1
+    // F(X,Y,Z) = XY v not(X) Z
     let mut i = 0u;
     while i < 16u {
-        a = rot(3, a + ((b & c) | (!b & d)) + x[i]);
+        a = rot( 3, a + ((b & c) | (!b & d)) + x[i]);
         i += 1u;
-        d = rot(7, d + ((a & b) | (!a & c)) + x[i]);
+        d = rot( 7, d + ((a & b) | (!a & c)) + x[i]);
         i += 1u;
         c = rot(11, c + ((d & a) | (!d & b)) + x[i]);
         i += 1u;
@@ -83,25 +84,27 @@ fn process_msg_block(st: &mut Md4) {
     }
 
     // Round 2
+    // G(X,Y,Z) = XY v XZ v YZ
     let mut i = 0u;
     let q = 0x5a827999u32;
     while i < 4u {
-        a = rot(3, a + ((b & c) | ((b & d) | (c & d))) + x[i] + q);
-        d = rot(5, d + ((a & b) | ((a & c) | (b & c))) + x[i + 4u] + q);
-        c = rot(9, c + ((d & a) | ((d & b) | (a & b))) + x[i + 8u] + q);
-        b = rot(13, b + ((c & d) | ((c & a) | (d & a))) + x[i + 12u] + q);
+        a = rot( 3, a + ((b & c) | (b & d) | (c & d)) + x[i] + q);
+        d = rot( 5, d + ((a & b) | (a & c) | (b & c)) + x[i+4u] + q);
+        c = rot( 9, c + ((d & a) | (d & b) | (a & b)) + x[i+8u] + q);
+        b = rot(13, b + ((c & d) | (c & a) | (d & a)) + x[i+12u] + q);
         i += 1u;
     }
 
     // Round 3
+    // H(X,Y,Z) = X xor Y xor Z
     let mut i = 0u;
     let q = 0x6ed9eba1u32;
     while i < 8u {
         let ii = if i > 2u { i - 3u } else { i };
-        a = rot(3, a + (b ^ c ^ d) + x[ii] + q);
-        d = rot(9, d + (a ^ b ^ c) + x[ii + 8u] + q);
-        c = rot(11, c + (d ^ a ^ b) + x[ii + 4u] + q);
-        b = rot(15, b + (c ^ d ^ a) + x[ii + 12u] + q);
+        a = rot( 3, a + (b ^ c ^ d) + x[ii] + q);
+        d = rot( 9, d + (a ^ b ^ c) + x[ii+8u] + q);
+        c = rot(11, c + (d ^ a ^ b) + x[ii+4u] + q);
+        b = rot(15, b + (c ^ d ^ a) + x[ii+12u] + q);
         i += 2u;
     }
 
@@ -164,6 +167,8 @@ impl Digest for Md4 {
                   0xefcdab89u32, 
                   0x98badcfeu32, 
                   0x10325476u32];
+        self.msg_len = 0;
+        self.msg_block_idx = 0;
         self.computed = false;
     }
     pub fn input(&mut self, msg: &[u8]) { add_input(self, msg); }

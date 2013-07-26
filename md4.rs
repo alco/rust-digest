@@ -23,8 +23,7 @@ static MSG_BLOCK_LEN: uint = 64u; // 512 bit
 /// Structure representing the state of an Md4 computation
 pub struct Md4 {
     priv h: [u32, ..DIGEST_BUF_LEN],  // a, b, c, d
-    priv len_low: u32,
-    priv len_high: u32,
+    priv len: u64,
     priv msg_block: [u8, ..MSG_BLOCK_LEN],
     priv msg_block_idx: uint,
     priv work_buf: [u32, ..WORK_BUF_CNT],
@@ -36,15 +35,12 @@ fn add_input(st: &mut Md4, msg: &[u8]) {
     for msg.iter().advance |&element| {
         st.msg_block[st.msg_block_idx] = element;
         st.msg_block_idx += 1;
-        st.len_low += 8;
-        if st.len_low == 0 {
-            st.len_high += 1;
-            if st.len_high == 0 {
-                // Message length overflow
+        st.len += 8;
+        if st.len == 0 {
+            // Message length overflow
 
-                // FIXME: Need better failure mode (#2346)
-                fail!();
-            }
+            // FIXME: Need better failure mode (#2346)
+            fail!();
         }
         if st.msg_block_idx == MSG_BLOCK_LEN { 
             process_msg_block(st); 
@@ -156,7 +152,7 @@ fn pad_msg(st: &mut Md4) {
 
     // Append length
     let mut i = 0u;
-    let mut len = (st.len_high as u64) << 32u64 | (st.len_low as u64);
+    let mut len = st.len;
     while i < 8u {
         st.msg_block[MSG_BLOCK_LEN-8+i] = (len & 0xFFu64) as u8;
         len >>= 8u64;

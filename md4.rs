@@ -161,6 +161,22 @@ fn pad_msg(st: &mut Md4) {
     process_msg_block(st);
 }
 
+impl Md4 {
+    /// Construct an `md4` object
+    pub fn new() -> Md4 {
+        let mut st = Md4{
+            h: [0u32, ..DIGEST_BUF_LEN],
+            msg_len: 0u64,
+            msg_block: [0u8, ..MSG_BLOCK_LEN],
+            msg_block_idx: 0,
+            work_buf: [0u32, ..WORK_BUF_LEN]
+            computed: false,
+        };
+        st.reset();
+        return st;
+    }
+}
+
 impl Digest for Md4 {
     pub fn reset(&mut self) {
         self.h = [0x67452301u32,
@@ -172,8 +188,8 @@ impl Digest for Md4 {
         self.computed = false;
     }
     pub fn input(&mut self, msg: &[u8]) { add_input(self, msg); }
-    pub fn result(&mut self, out: &mut [u8]) { return mk_result(self, out); }
-    pub fn output_bits(&self) -> uint { 128 }
+    pub fn result(&mut self, out: &mut [u8]) { mk_result(self, out); }
+    pub fn output_bits(&self) -> uint { 128 } // static?
 }
 
 #[test]

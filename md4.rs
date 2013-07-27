@@ -9,7 +9,8 @@
 // except according to those terms.
 
 
-use digest::Digest;
+extern mod extra;
+use extra::digest::Digest;
 
 // Some unexported constants
 static DIGEST_BUF_LEN: uint = 4u; // 4 32-bit words
@@ -67,7 +68,10 @@ fn process_msg_block(st: &mut Md4) {
         m_i += 4u;
     }
 
-    let mut [a, b, c, d] = st.h;
+    let mut a = st.h[0];
+    let mut b = st.h[1];
+    let mut c = st.h[2];
+    let mut d = st.h[3];
 
     // Round 1
     // F(X,Y,Z) = XY v not(X) Z
@@ -120,7 +124,7 @@ fn mk_result(st: &mut Md4, rs: &mut [u8]) {
     let mut i = 0u;
     let mut r_i = 0u;
     while i < 4u {
-        let w = h[i];
+        let w = st.h[i];
         rs[r_i] = (w & 0xFFu32) as u8;
         rs[r_i+1] = ((w >> 8u32) & 0xFFu32) as u8;
         rs[r_i+2] = ((w >> 16u32) & 0xFFu32) as u8;
@@ -169,7 +173,7 @@ impl Md4 {
             msg_len: 0u64,
             msg_block: [0u8, ..MSG_BLOCK_LEN],
             msg_block_idx: 0,
-            work_buf: [0u32, ..WORK_BUF_LEN]
+            work_buf: [0u32, ..WORK_BUF_LEN],
             computed: false,
         };
         st.reset();
@@ -194,8 +198,8 @@ impl Digest for Md4 {
 
 #[test]
 fn test_md4() {
-    use digest::{Digest, DigestUtil};
-    use sha1::Sha1;
+    use extra::digest::{Digest, DigestUtil};
+    use extra::sha1::Sha1;
 
     #[deriving(Clone)]
     struct Test {

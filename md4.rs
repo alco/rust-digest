@@ -132,30 +132,35 @@ fn mk_result(st: &mut Md4, rs: &mut [u8]) {
     }
 }
 
-fn pad_msg_block(st: &mut Md4, len: uint) {
-    st.msg_block[st.msg_block_idx] = 0x80u8;
-    let mut i = st.msg_block_idx+1;
+fn append_zeros(st: &mut Md4, mut i: uint, len: uint) {
     while i < len {
         st.msg_block[i] = 0u8;
         i += 1;
     }
 }
 
+fn pad_msg_block(st: &mut Md4, len: uint) {
+    st.msg_block[st.msg_block_idx] = 0x80u8;   // 1 bit
+    append_zeros(st, st.msg_block_idx+1, len);
+}
+
 fn pad_msg(st: &mut Md4) {
-    if st.msg_block_idx >= MSG_BLOCK_LEN-8 {
+    static MSG_BLOCK_PAD_LEN: uint = MSG_BLOCK_LEN - 8;
+
+    if st.msg_block_idx >= MSG_BLOCK_PAD_LEN {
         // Process last block before appending length
         pad_msg_block(st, MSG_BLOCK_LEN);
         process_msg_block(st);
-    }
-    if st.msg_block_idx < MSG_BLOCK_LEN-8 {
-        pad_msg_block(st, MSG_BLOCK_LEN-8);
+        append_zeros(st, 0, MSG_BLOCK_PAD_LEN);
+    } else {
+        pad_msg_block(st, MSG_BLOCK_PAD_LEN);
     }
 
     // Append length
     let mut i = 0u;
     let mut len = st.msg_len;
     while i < 8u {
-        st.msg_block[MSG_BLOCK_LEN-8+i] = (len & 0xFFu64) as u8;
+        st.msg_block[MSG_BLOCK_PAD_LEN+i] = (len & 0xFFu64) as u8;
         len >>= 8u64;
         i += 1;
     }
@@ -240,13 +245,78 @@ mod tests {
                 output_str: ~"b86e130ce7028da59e672d56ad0113df",
             },
         ];
-        let tests = wikipedia_tests;
+        let test_vectors = ~[
+            Test {
+                input: ~"a",
+                output: ~[
+                    0xbdu8, 0xe5u8, 0x2cu8, 0xb3u8,
+                    0x1du8, 0xe3u8, 0x3eu8, 0x46u8,
+                    0x24u8, 0x5eu8, 0x05u8, 0xfbu8,
+                    0xdbu8, 0xd6u8, 0xfbu8, 0x24u8,
+                ],
+                output_str: ~"bde52cb31de33e46245e05fbdbd6fb24",
+            },
+            Test {
+                input: ~"abc",
+                output: ~[
+                    0xa4u8, 0x48u8, 0x01u8, 0x7au8,
+                    0xafu8, 0x21u8, 0xd8u8, 0x52u8,
+                    0x5fu8, 0xc1u8, 0x0au8, 0xe8u8,
+                    0x7au8, 0xa6u8, 0x72u8, 0x9du8,
+                ],
+                output_str: ~"a448017aaf21d8525fc10ae87aa6729d",
+            },
+            Test {
+                input: ~"message digest",
+                output: ~[
+                    0xd9u8, 0x13u8, 0x0au8, 0x81u8,
+                    0x64u8, 0x54u8, 0x9fu8, 0xe8u8,
+                    0x18u8, 0x87u8, 0x48u8, 0x06u8,
+                    0xe1u8, 0xc7u8, 0x01u8, 0x4bu8,
+                ],
+                output_str: ~"d9130a8164549fe818874806e1c7014b",
+            },
+            Test {
+                input: ~"abcdefghijklmnopqrstuvwxyz",
+                output: ~[
+                    0xd7u8, 0x9eu8, 0x1cu8, 0x30u8,
+                    0x8au8, 0xa5u8, 0xbbu8, 0xcdu8,
+                    0xeeu8, 0xa8u8, 0xedu8, 0x63u8,
+                    0xdfu8, 0x41u8, 0x2du8, 0xa9u8,
+                ],
+                output_str: ~"d79e1c308aa5bbcdeea8ed63df412da9",
+            },
+            Test {
+                input: ~"ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+                        "abcdefghijklmnopqrstuvwxyz" +
+                        "0123456789",
+                output: ~[
+                    0x04u8, 0x3fu8, 0x85u8, 0x82u8,
+                    0xf2u8, 0x41u8, 0xdbu8, 0x35u8,
+                    0x1cu8, 0xe6u8, 0x27u8, 0xe1u8,
+                    0x53u8, 0xe7u8, 0xf0u8, 0xe4u8,
+                ],
+                output_str: ~"043f8582f241db351ce627e153e7f0e4",
+            },
+            Test {
+                input: ~"123456789012345678901234567890" +
+                        "123456789012345678901234567890" +
+                        "12345678901234567890",
+                output: ~[
+                    0xe3u8, 0x3bu8, 0x4du8, 0xdcu8,
+                    0x9cu8, 0x38u8, 0xf2u8, 0x19u8,
+                    0x9cu8, 0x3eu8, 0x7bu8, 0x16u8,
+                    0x4fu8, 0xccu8, 0x05u8, 0x36u8,
+                ],
+                output_str: ~"e33b4ddc9c38f2199c3e7b164fcc0536",
+            },
+        ];
+        let tests = wikipedia_tests + test_vectors;
 
-
+        let mut md = ~Md4::new();
         let mut out = [0u8, ..16];
 
         // Test that it works when accepting the message all at once
-        let mut md = ~Md4::new();
         for tests.iter().advance |t| {
             (*md).input_str(t.input);
             md.result(out);
